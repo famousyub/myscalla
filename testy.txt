@@ -1,0 +1,103 @@
+
+package main
+
+import (
+    "fmt"
+    "io/ioutil"
+    "log"
+    "net/http"
+    "os"
+)
+
+func main() {
+    response, err := http.Get("http://pokeapi.co/api/v2/pokedex/kanto/")
+
+    if err != nil {
+        fmt.Print(err.Error())
+        os.Exit(1)
+    }
+
+    responseData, err := ioutil.ReadAll(response.Body)
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Println(string(responseData))
+
+}
+Within our main function we first query our API endpoint using http.Get("http://pokeapi.co/api/v2/pokedex/kanto"), we map the results of this into either response or err and then check to see if err is nil. If it is we exit.
+
+Below this, we then perform the conversion of our response’s body from bytes into something meaningful that can be printed out in the console. We first use ioutil.ReadAll(response.Body) to read in data from the incoming byte stream and then convert this []byte response into a string using string(responseData) within our print statement.
+
+If you run the above program you should see that it successfully performs a GET request on our API Endpoint and then prints all of our Pokemon out in the console.
+
+Creating a Pokemon Struct
+By knowing the structure of the JSON response that the above API endpoint gives us we can now map this into a series of structs that we can map our objects to. Below you’ll see the condensed version of the JSON. Within our JSON response, we have a couple of key-value pairs, the first of which is the name of the region that the original Pokemon reside in. region gives us a link to the API for gaining more information on that particular region etc.
+
+The one we are interested most in is pokemon_entries which stores an array of all the Pokemon that we want.
+
+{
+  "name":"kanto",
+  "region": {
+    "url":"http:\/\/pokeapi.co\/api\/v2\/region\/1\/",
+    "name":"kanto"
+  },
+  "version_groups":[ ... ]
+  ],
+  "is_main_series":true,
+  "descriptions":[ ... ],
+  "pokemon_entries":[
+    {
+      "entry_number": 1,
+      "pokemon_species": {
+        "url":"http:\/\/pokeapi.co\/api\/v2\/pokemon-species\/1\/",
+        "name":"bulbasaur"
+      }
+    }
+    ...
+  ]
+}
+In Go we could map this out into 3 different structs, a Response struct that contains an array of Pokemon and a Pokemon struct to map these individual pokemon and a PokemonSpecies struct to access our Pokemon’s name.
+
+// A Response struct to map the Entire Response
+type Response struct {
+    Name    string    `json:"name"`
+    Pokemon []Pokemon `json:"pokemon_entries"`
+}
+
+// A Pokemon Struct to map every pokemon to.
+type Pokemon struct {
+    EntryNo int            `json:"entry_number"`
+    Species PokemonSpecies `json:"pokemon_species"`
+}
+
+// A struct to map our Pokemon's Species which includes it's name
+type PokemonSpecies struct {
+    Name string `json:"name"`
+}
+Unmarshalling our JSON
+Now that we’ve defined these structs, we can Unmarshal the returned JSON string into a new variable. We can do this in our main function by adding these three lines to below where we print out our responseData.
+
+var responseObject Response
+json.Unmarshal(responseData, &responseObject)
+
+fmt.Println(responseObject.Name)
+fmt.Println(len(responseObject.Pokemon))
+Note You will also need to add encoding/json to the list of imports at the top of your main.go file.
+
+In the above code, we declare a new responseObject variable which is of type Response. We then unmarshal our responseData into this object and to test that it all works we print out our responseObject.Name which should equat to kanto. We then print out the length of our Pokemon array to see if it matches our expectations, if it prints out 151 then we know we’ve done it right and we can now iterate over these pokemon.
+
+Listing All Our Pokemon
+In order to list all of our pokemon we need to create a for loop that loops for every object in our responseObjects Pokemon array like so:
+
+var responseObject Response
+json.Unmarshal(responseData, &responseObject)
+
+fmt.Println(responseObject.Name)
+fmt.Println(len(responseObject.Pokemon))
+
+for _, pokemon := range responseObject.Pokemon {
+  fmt.Println(pokemon.Species.Name)
+}
+Running this now you should see that every Pokemon’s name is listed in your console.
+
+Full Source Code
